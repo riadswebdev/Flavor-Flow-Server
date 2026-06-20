@@ -3,7 +3,7 @@ const app = express();
 require("dotenv").config();
 const cors = require("cors");
 const port = process.env.PORT || 8000;
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 app.use(cors());
 app.use(express.json());
@@ -47,6 +47,43 @@ async function run() {
 
         const result = await RecipeCollection.insertOne(recipe);
         res.status(201).send(result);
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // Get all recipes
+    app.get("/recipes", async (req, res) => {
+      try {
+        const recipes = await RecipeCollection.find({}).toArray();
+        res.send(recipes);
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    //  Get a single recipe by ID
+    app.get("/api/recipes/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        
+        if (!ObjectId.isValid(id)) {
+          return res
+            .status(400)
+            .json({ success: false, message: "Invalid Recipe ID format" });
+        }
+
+        const query = { _id: new ObjectId(id) };
+        const recipe = await RecipeCollection.findOne(query);
+
+        if (!recipe) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Recipe not found!" });
+        }
+
+        res.status(200).json({ success: true, data: recipe });
       } catch (error) {
         res.status(500).json({ success: false, message: error.message });
       }
