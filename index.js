@@ -25,16 +25,15 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
-    // // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
-    // console.log(
-    //   "Pinged your deployment. You successfully connected to MongoDB!",
-    // );
 
     const db = client.db("flavorflow");
     const RecipeCollection = db.collection("recipes");
+    const LikesCollection = db.collection("likes");
+    await LikesCollection.createIndex(
+      { recipeId: 1, userId: 1 },
+      { unique: true },
+    );
 
     // Create a new recipe
     app.post("/recipes", async (req, res) => {
@@ -67,7 +66,6 @@ async function run() {
       try {
         const id = req.params.id;
 
-        
         if (!ObjectId.isValid(id)) {
           return res
             .status(400)
@@ -84,6 +82,87 @@ async function run() {
         }
 
         res.status(200).json({ success: true, data: recipe });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // Like & Unlike
+    app.patch("/api/recipes/:id/like", async (req, res) => {
+      try {
+        const recipeId = req.params.id;
+        const { action, userId } = req.body;
+
+        if (!ObjectId.isValid(recipeId) || !userId) {
+          return res
+            .status(400)
+            .json({ success: false, message: "Missing or invalid data" });
+        }
+
+        const query = { _id: new ObjectId(recipeId) };
+        const likeQuery = { recipeId: new ObjectId(recipeId), userId: userId };
+
+        // LIKE ACTION
+        if (action === "like") {
+          // upsert: true এবং $setOnInsert
+          const result = await LikesCollection.updateOne(
+            likeQuery,
+            { $setOnInsert: likeQuery },
+            { upsert: true },
+          );
+
+          if (result.upsertedCount > 0) {
+            await RecipeCollection.updateOne(query, {
+              $inc: { likesCount: 1 },
+            });
+          }
+        }
+
+        // UNLIKE ACTION
+        else if (action === "unlike") {
+          const result = await LikesCollection.deleteOne(likeQuery);
+
+          if (result.deletedCount > 0) {
+            await RecipeCollection.updateOne(query, {
+              $inc: { likesCount: -1 },
+            });
+          }
+        }
+
+        const updatedRecipe = await RecipeCollection.findOne(query, {
+          projection: { likesCount: 1 },
+        });
+
+        res.status(200).json({
+          success: true,
+          likesCount: updatedRecipe?.likesCount || 0,
+        });
+      } catch (error) {
+        if (error.code === 11000) {
+          return res
+            .status(400)
+            .json({ success: false, message: "Action already processed" });
+        }
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // GET /api/recipes/:id/like-status?userId=...
+    app.get("/api/recipes/:id/like-status", async (req, res) => {
+      try {
+        const recipeId = req.params.id;
+        const userId = req.query.userId;
+        console.log(userId);
+        if (!userId) {
+          return res.status(200).json({ isLiked: false });
+        }
+
+        const existingLike = await LikesCollection.findOne({
+          recipeId: new ObjectId(recipeId),
+          userId: userId,
+        });
+
+        res.status(200).json({ isLiked: !!existingLike });
       } catch (error) {
         res.status(500).json({ success: false, message: error.message });
       }
