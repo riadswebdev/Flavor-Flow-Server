@@ -238,6 +238,40 @@ async function run() {
         res.status(500).json({ success: false, message: error.message });
       }
     });
+
+    // Get Featured & Popular Recipe
+    app.get("/api/feature&popularRecipe", async (req, res) => {
+      try {
+        const featuredRecipes = await RecipeCollection.find({
+          isFeatured: true,
+          status: "published",
+        })
+          .sort({ createdAt: -1 })
+          .limit(6)
+          .toArray();
+
+        const popularRecipes = await RecipeCollection.find({
+          status: "published",
+        })
+          .sort({ likesCount: -1 })
+          .limit(6)
+          .toArray();
+
+        return res.status(200).json({
+          success: true,
+          featuredRecipes,
+          popularRecipes,
+        });
+      } catch (error) {
+        console.error("Error in getHomeRecipes Controller:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Server Error! Failed to fetch home data.",
+        });
+      }
+    });
+
+
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
