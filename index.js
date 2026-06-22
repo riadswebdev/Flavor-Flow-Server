@@ -30,10 +30,29 @@ async function run() {
     const db = client.db("flavorflow");
     const RecipeCollection = db.collection("recipes");
     const LikesCollection = db.collection("likes");
+    const usersCollection = db.collection("user");
     await LikesCollection.createIndex(
       { recipeId: 1, userId: 1 },
       { unique: true },
     );
+    // update user additional info
+    app.patch("/update/:userId", async (req, res) => {
+      try {
+        const userId = req.params.userId;
+        const updateData = req.body;
+        console.log(userId, updateData ,"updateData");
+        const filter = { _id: new ObjectId(userId) };
+        const update = {
+          $set: {
+            ...updateData,
+          },
+        };
+        const result = await usersCollection.findOneAndUpdate(filter, update);
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
 
     // Create a new recipe
     app.post("/recipes", async (req, res) => {
@@ -270,8 +289,6 @@ async function run() {
         });
       }
     });
-
-
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
@@ -282,3 +299,4 @@ run().catch(console.dir);
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
