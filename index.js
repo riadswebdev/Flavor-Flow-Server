@@ -184,7 +184,7 @@ async function run() {
       try {
         const recipeId = req.params.id;
         const userId = req.query.userId;
-        console.log(userId);
+
         if (!userId) {
           return res.status(200).json({ isLiked: false });
         }
@@ -195,6 +195,31 @@ async function run() {
         });
 
         res.status(200).json({ isLiked: !!existingLike });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // update recipe by ID
+    app.patch("/api/recipes/:id", async (req, res) => {
+      try {
+        const recipeId = req.params.id;
+        const updateData = req.body;
+        console.log("Update Data:", updateData);
+        console.log("Recipe ID:", recipeId);
+        const updatedRecipe = await RecipeCollection.updateOne(
+          { _id: new ObjectId(recipeId) },
+          { $set: updateData },
+        );
+        console.log("Updated Recipe Result:", updatedRecipe);
+        if (updatedRecipe.matchedCount === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Recipe not found",
+          });
+        }
+
+        res.status(200).json({ success: true, recipe: updatedRecipe });
       } catch (error) {
         res.status(500).json({ success: false, message: error.message });
       }
