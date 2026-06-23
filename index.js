@@ -40,7 +40,6 @@ async function run() {
       try {
         const userId = req.params.userId;
         const updateData = req.body;
-        console.log(userId, updateData ,"updateData");
         const filter = { _id: new ObjectId(userId) };
         const update = {
           $set: {
@@ -55,7 +54,7 @@ async function run() {
     });
 
     // Create a new recipe
-    app.post("/recipes", async (req, res) => {
+    app.post("/api/recipes/publish", async (req, res) => {
       try {
         const recipe = req.body;
 
@@ -101,6 +100,20 @@ async function run() {
         }
 
         res.status(200).json({ success: true, data: recipe });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // Get recipes by user ID
+    app.get("/api/user/:userId/recipes", async (req, res) => {
+      try {
+        const userId = req.params.userId;
+        const recipes = await RecipeCollection.find({
+          "author.id": userId,
+        }).toArray();
+
+        res.status(200).json({ success: true, data: recipes });
       } catch (error) {
         res.status(500).json({ success: false, message: error.message });
       }
@@ -299,4 +312,3 @@ run().catch(console.dir);
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
-
