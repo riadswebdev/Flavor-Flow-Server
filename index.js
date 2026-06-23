@@ -296,6 +296,41 @@ async function run() {
       }
     });
 
+    // Delete a recipe by ID
+    app.delete("/api/recipes/:id", async (req, res) => {
+      try {
+        const recipeId = req.params.id;
+        console.log("Deleting Recipe ID:", recipeId);
+        if (!ObjectId.isValid(recipeId)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid Recipe ID",
+          });
+        }
+        const deletedRecipe = await RecipeCollection.deleteOne({
+          _id: new ObjectId(recipeId),
+        });
+        console.log("Deleted Recipe Result:", deletedRecipe);
+        if (!deletedRecipe) {
+          return res.status(404).json({
+            success: false,
+            message: "Recipe not found",
+          });
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: "Recipe deleted successfully",
+        });
+      } catch (error) {
+        console.error("Error in deleteRecipe Controller:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Server Error! Failed to delete recipe.",
+        });
+      }
+    });
+
     // Get Featured & Popular Recipe
     app.get("/api/feature&popularRecipe", async (req, res) => {
       try {
@@ -337,3 +372,4 @@ run().catch(console.dir);
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
