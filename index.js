@@ -31,7 +31,12 @@ async function run() {
     const RecipeCollection = db.collection("recipes");
     const LikesCollection = db.collection("likes");
     const usersCollection = db.collection("user");
+    const FavoritesCollection = db.collection("favorites");
     await LikesCollection.createIndex(
+      { recipeId: 1, userId: 1 },
+      { unique: true },
+    );
+    await FavoritesCollection.createIndex(
       { recipeId: 1, userId: 1 },
       { unique: true },
     );
@@ -195,6 +200,41 @@ async function run() {
         });
 
         res.status(200).json({ isLiked: !!existingLike });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // Post Favorite recipe
+    app.post("/api/recipes/:id/favorite", async (req, res) => {
+      try {
+        const recipeId = req.params.id;
+        const favoriteRecipe = req.body;
+       
+        console.log(favoriteRecipe);
+        const result = await FavoritesCollection.insertOne(favoriteRecipe);
+
+        res
+          .status(201)
+          .json({ success: true, message: "Recipe favorited successfully" });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+
+
+    // Get total Favorites count for a recipe
+    app.get("/api/recipes/:id/favorites-count", async (req, res) => {
+      try {
+        const recipeId = req.params.id;
+        const userId = req.query.userId;
+        const favoriteRecipes = await FavoritesCollection.find({
+          recipeId: new ObjectId(recipeId),
+          userId: userId,
+        }).toArray();
+
+        res.status(200).json({ count: favoriteRecipes.length });
       } catch (error) {
         res.status(500).json({ success: false, message: error.message });
       }
@@ -372,4 +412,3 @@ run().catch(console.dir);
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
-
