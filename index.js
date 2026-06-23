@@ -184,6 +184,37 @@ async function run() {
       }
     });
 
+    app.patch("/api/recipes/:id/favorite", async (req, res) => {
+      try {
+        const recipeId = req.params.id;
+
+        console.log("Favorite Endpoint Hit - Recipe ID:", recipeId);
+        const { action, favRecipe } = req.body;
+        const userId = favRecipe.userId;
+        console.log("User ID:", userId);
+        console.log("Favorite Action:", action);
+        console.log("Favorite Recipe Data:", favRecipe);
+
+        if (!recipeId || !userId) {
+          return res
+            .status(400)
+            .json({ success: false, message: "Missing or invalid data" });
+        }
+        if (action === "favorite") {
+          const result = await FavoritesCollection.insertOne(favRecipe);
+          res.status(200).json({ success: true, message: "Recipe favorited" });
+        } else if (action === "unfavorite") {
+          const result = await FavoritesCollection.deleteOne({
+            recipeId: recipeId,
+            userId: userId,
+          });
+        }
+       
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
     // GET /api/recipes/:id/like-status?userId=...
     app.get("/api/recipes/:id/like-status", async (req, res) => {
       try {
@@ -210,9 +241,10 @@ async function run() {
       try {
         const recipeId = req.params.id;
         const favoriteRecipe = req.body;
-       
+
         console.log(favoriteRecipe);
         const result = await FavoritesCollection.insertOne(favoriteRecipe);
+        console.log(result);
 
         res
           .status(201)
@@ -222,7 +254,22 @@ async function run() {
       }
     });
 
+    // Get Favorite status for a recipe
+    app.get("/api/user/recipes/:id/favorite-status", async (req, res) => {
+      try {
+        const recipeId = req.params.id;
+        const userId = req.query.userId;
 
+        const existingFavorite = await FavoritesCollection.findOne({
+          recipeId,
+          userId: userId,
+        });
+
+        res.status(200).json({ isFavorite: !!existingFavorite });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
 
     // Get total Favorites count for a recipe
     app.get("/api/recipes/:id/favorites-count", async (req, res) => {
