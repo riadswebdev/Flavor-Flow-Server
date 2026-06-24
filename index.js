@@ -33,6 +33,10 @@ async function run() {
     const usersCollection = db.collection("user");
     const FavoritesCollection = db.collection("favorites");
     const ReportsCollection = db.collection("reports");
+    // not used yet
+    const PremiumUsersCollection = db.collection("premiumUsers");
+    const PaymentCollection = db.collection("payments");
+    const SubscriptionPlansCollection = db.collection("subscriptionPlans");
     await LikesCollection.createIndex(
       { recipeId: 1, userId: 1 },
       { unique: true },
@@ -54,6 +58,27 @@ async function run() {
         };
         const result = await usersCollection.findOneAndUpdate(filter, update);
         res.send(result);
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+// Post subscription plan
+    app.post("/api/subscription-plans", async (req, res) => {
+      try {
+        const subscriptionPlan = req.body;
+        const result = await SubscriptionPlansCollection.insertOne(subscriptionPlan);
+        res.status(201).send(result);
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+// Get all subscription plans
+    app.get("/api/subscription-plans", async (req, res) => {
+      try {
+        const subscriptionPlans = await SubscriptionPlansCollection.find({}).toArray();
+        res.send(subscriptionPlans);
       } catch (error) {
         res.status(500).json({ success: false, message: error.message });
       }
