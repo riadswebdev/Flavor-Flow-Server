@@ -32,6 +32,7 @@ async function run() {
     const LikesCollection = db.collection("likes");
     const usersCollection = db.collection("user");
     const FavoritesCollection = db.collection("favorites");
+    const ReportsCollection = db.collection("reports");
     await LikesCollection.createIndex(
       { recipeId: 1, userId: 1 },
       { unique: true },
@@ -184,17 +185,12 @@ async function run() {
       }
     });
 
+    // Favorite & Unfavorite
     app.patch("/api/recipes/:id/favorite", async (req, res) => {
       try {
         const recipeId = req.params.id;
-
-        console.log("Favorite Endpoint Hit - Recipe ID:", recipeId);
         const { action, favRecipe } = req.body;
         const userId = favRecipe.userId;
-        console.log("User ID:", userId);
-        console.log("Favorite Action:", action);
-        console.log("Favorite Recipe Data:", favRecipe);
-
         if (!recipeId || !userId) {
           return res
             .status(400)
@@ -208,8 +204,65 @@ async function run() {
             recipeId: recipeId,
             userId: userId,
           });
+          res
+            .status(200)
+            .json({ success: true, message: "Recipe unfavorited" });
+        } else {
+          res.status(400).json({ success: false, message: "Invalid action" });
         }
-       
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // Get Favorite recipes for a user
+    app.get("/api/user/:userId/favorite-recipes", async (req, res) => {
+      try {
+        const userId = req.params.userId;
+        const favoriteRecipes = await FavoritesCollection.find({
+          userId: userId,
+        }).toArray();
+        res.status(200).json({ success: true, favoriteRecipes });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // Delete a favorite recipe using userId and recipeId
+    app.delete(
+      "/api/user/:userId/favorite-recipes/:recipeId",
+      async (req, res) => {
+        try {
+          const { userId, recipeId } = req.params;
+          const result = await FavoritesCollection.deleteOne({
+            userId: userId,
+            recipeId: recipeId,
+          });
+          if (result.deletedCount === 0) {
+            return res
+              .status(404)
+              .json({ success: false, message: "Favorite not found" });
+          }
+          res
+            .status(200)
+            .json({ success: true, message: "Recipe unfavorited" });
+        } catch (error) {
+          res.status(500).json({ success: false, message: error.message });
+        }
+      },
+    );
+
+    // Report a recipe
+    app.post("/api/recipes/report", async (req, res) => {
+      try {
+        const reportData = req.body;
+        const result = await ReportsCollection.insertOne({
+          ...reportData,
+        });
+        console.log("Report Result:", result);
+        res
+          .status(201)
+          .json({ success: true, message: "Recipe reported successfully" });
       } catch (error) {
         res.status(500).json({ success: false, message: error.message });
       }
@@ -237,22 +290,22 @@ async function run() {
     });
 
     // Post Favorite recipe
-    app.post("/api/recipes/:id/favorite", async (req, res) => {
-      try {
-        const recipeId = req.params.id;
-        const favoriteRecipe = req.body;
+    // app.post("/api/recipes/:id/favorite", async (req, res) => {
+    //   try {
+    //     const recipeId = req.params.id;
+    //     const favoriteRecipe = req.body;
 
-        console.log(favoriteRecipe);
-        const result = await FavoritesCollection.insertOne(favoriteRecipe);
-        console.log(result);
+    //     console.log(favoriteRecipe);
+    //     const result = await FavoritesCollection.insertOne(favoriteRecipe);
+    //     console.log(result);
 
-        res
-          .status(201)
-          .json({ success: true, message: "Recipe favorited successfully" });
-      } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-      }
-    });
+    //     res
+    //       .status(201)
+    //       .json({ success: true, message: "Recipe favorited successfully" });
+    //   } catch (error) {
+    //     res.status(500).json({ success: false, message: error.message });
+    //   }
+    // });
 
     // Get Favorite status for a recipe
     app.get("/api/user/recipes/:id/favorite-status", async (req, res) => {
