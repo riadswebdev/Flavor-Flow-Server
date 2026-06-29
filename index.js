@@ -758,237 +758,182 @@ async function run() {
       }
     });
 
-    //   try {
-    //     const page = parseInt(req.query.page) || 1;
-    //     const limit = parseInt(req.query.limit) || 10;
-    //     const { search, role, status, membership } = req.query;
-    //     console.log("Query Parameters:", { search, role, status, membership, page, limit });
+    // Get total reports
+    app.get("/api/reports/total-reports", async (req, res) => {
+      try {
+        const totalReports = await ReportsCollection.find().toArray();
+        res.status(200).json({
+          success: true,
+          totalReports,
+        });
+      } catch (error) {
+        console.error("Error fetching total reports:", error);
+        res.status(500).json({
+          success: false,
+          message:
+            "Internal server error occurred while retrieving total reports.",
+        });
+      }
+    });
 
-    //     // ডাইনামিক কোয়েরি অবজেক্ট তৈরি
-    //     let query = {};
+    // PUT API to Toggle Block/Unblock Status
+    app.patch("/api/users/:id/toggle-block", async (req, res) => {
+      try {
+        const userId = req.params.id;
 
-    //     // নাম বা ইমেইল দিয়ে সার্চ (Case-insensitive)
-    //     if (search) {
-    //       query.$or = [
-    //         { name: { $regex: search, $options: "i" } },
-    //         { email: { $regex: search, $options: "i" } },
-    //       ];
-    //     }
+        if (!ObjectId.isValid(userId)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid User ID format",
+          });
+        }
 
-    //     // রোল অনুযায়ী ফিল্টার (admin / user)
-    //     if (role && role !== "all") {
-    //       query.role = role;
-    //     }
+        const user = await usersCollection.findOne({
+          _id: new ObjectId(userId),
+        });
 
-    //     // স্ট্যাটাস অনুযায়ী ফিল্টার (active / blocked)
-    //     if (status && status !== "all") {
-    //       query.isBlocked = status === "blocked";
-    //     }
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            message: "User not found",
+          });
+        }
 
-    //     // মেম্বারশিপ অনুযায়ী ফিল্টার (premium / free)
-    //     if (membership && membership !== "all") {
-    //       query.plan = membership;
-    //     }
+        const newBlockStatus = !user.isBlocked;
 
-    //     // ডাটাসংখ্যা এবং স্কিপ লজিক হিসাব করা
-    //     const skip = (page - 1) * limit;
-    //     const totalUsers = await usersCollection.countDocuments(query);
-    //     const totalPages = Math.ceil(totalUsers / limit);
+        const result = await usersCollection.updateOne(
+          { _id: new ObjectId(userId) },
+          {
+            $set: {
+              isBlocked: newBlockStatus,
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        );
 
-    //     // ডাটাবেজ থেকে ইউজার লিস্ট নিয়ে আসা
-    //     const rawUsers = await usersCollection
-    //       .find(query)
-    //       .sort({ createdAt: -1 })
-    //       .skip(skip)
-    //       .limit(limit)
-    //       .toArray();
+        if (result.modifiedCount === 0) {
+          return res.status(500).json({
+            success: false,
+            message: "Failed to update user block status",
+          });
+        }
 
-    //     // ফ্রন্টএন্ডের সুবিধার জন্য 'plan' ফিল্ডকে 'isPremium' এ ম্যাপ করা
-    //     const formattedUsers = rawUsers.map((user) => ({
-    //       ...user,
-    //       isPremium: user.plan === "premium",
-    //     }));
-    // console.log("Formatted Users:", formattedUsers, "Total Users:", totalUsers, "Total Pages:", totalPages, "Current Page:", page);
-    //     res.status(205).json({
-    //       success: true,
-    //       totalUsers,
-    //       totalPages,
-    //       currentPage: page,
-    //       users: formattedUsers,
-    //     });
-    //   } catch (error) {
-    //     console.error("Error fetching users:", error);
-    //     res.status(500).json({ success: false, message: error.message });
-    //   }
-    // });
+        return res.status(200).json({
+          success: true,
+          message:
+            newBlockStatus ?
+              "User blocked successfully!"
+            : "User unblocked successfully!",
+          isBlocked: newBlockStatus,
+        });
+      } catch (error) {
+        console.error("Error in toggle-block controller:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Internal Server Error",
+          error: error.message,
+        });
+      }
+    });
 
-    // // ==========================================================================
-    // // 2. BLOCK / UNBLOCK TOGGLE API (একই রাউটে টগল লজিক)
-    // // ==========================================================================
-    // app.patch("/api/users/toggle-block/:id", async (req, res) => {
-    //   try {
-    //     const { id } = req.params;
+    // PATCH /api/recipes/:id/toggle-featured
+    app.patch("/api/recipes/:id/toggle-featured", async (req, res) => {
+      try {
+        const { id } = req.params;
+        console.log("Toggle Featured Recipe ID:", id);
 
-    //     if (!ObjectId.isValid(id)) {
-    //       return res
-    //         .status(400)
-    //         .json({ success: false, message: "Invalid User ID format" });
-    //     }
+        // Get current value
+        const recipe = await RecipeCollection.findOne({
+          _id: new ObjectId(id),
+        });
 
-    //     // বর্তমান স্ট্যাটাস চেক করার জন্য ইউজার খুঁজে বের করা
-    //     const user = await usersCollection.findOne({ _id: new ObjectId(id) });
-    //     if (!user) {
-    //       return res
-    //         .status(404)
-    //         .json({ success: false, message: "User not found" });
-    //     }
+        if (!recipe) {
+          return res.status(404).json({ message: "Recipe not found" });
+        }
 
-    //     // বর্তমান স্ট্যাটাসকে উল্টে দেওয়া (Toggle)
-    //     const updatedStatus = !user.isBlocked;
+        // toggle the value
+        const result = await RecipeCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              isFeatured: !recipe.isFeatured,
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        );
 
-    //     const result = await usersCollection.updateOne(
-    //       { _id: new ObjectId(id) },
-    //       {
-    //         $set: {
-    //           isBlocked: updatedStatus,
-    //           updatedAt: new Date(),
-    //         },
-    //       },
-    //     );
+        if (result.modifiedCount === 0) {
+          return res.status(500).json({ message: "Failed to update recipe" });
+        }
 
-    //     res.status(200).json({
-    //       success: true,
-    //       message: `User has been successfully ${updatedStatus ? "blocked" : "unblocked"}.`,
-    //       isBlocked: updatedStatus,
-    //     });
-    //   } catch (error) {
-    //     console.error("Error toggling user block status:", error);
-    //     res.status(500).json({ success: false, message: error.message });
-    //   }
-    // });
+        res.status(200).json({
+          success: true,
+          isFeatured: !recipe.isFeatured,
+          message:
+            !recipe.isFeatured ?
+              "Recipe marked as featured"
+            : "Recipe removed from featured",
+        });
+      } catch (error) {
+        console.error("Toggle featured error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
 
-    // // ==========================================================================
-    // // 3. EDIT RECIPE API
-    // // ==========================================================================
-    // app.patch("/api/recipes/:id", async (req, res) => {
-    //   try {
-    //     const { id } = req.params;
-    //     const updateData = req.body; // ফ্রন্টএন্ড থেকে সংশোধিত ডেটা আসবে
+    // Delete Recipe with Report
+    app.delete("/api/recipes/:recipeId/report/:reportId", async (req, res) => {
+      const { recipeId, reportId } = req.params;
+      console.log("Deleting Recipe and Report:", { recipeId, reportId });
+      try {
+        if (!recipeId || !ObjectId.isValid(reportId)) {
+          return res
+            .status(400)
+            .json({ message: "Invalid recipe or report ID" });
+        }
 
-    //     if (!ObjectId.isValid(id)) {
-    //       return res
-    //         .status(400)
-    //         .json({ success: false, message: "Invalid Recipe ID format" });
-    //     }
+        // Delete the recipe
+        const recipeDeleteResult = await RecipeCollection.deleteOne({
+          _id: new ObjectId(recipeId),
+        });
+        console.log("Recipe Delete Result:", recipeDeleteResult);
+        // Delete the report
+        const reportDeleteResult = await ReportsCollection.deleteOne({
+          _id: new ObjectId(reportId),
+        });
+        console.log("Report Delete Result:", reportDeleteResult);
+      } catch (error) {
+        console.error("Error deleting recipe report:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
 
-    //     // আপডেট করার অবজেক্ট থেকে আইডি বাদ দেওয়া (মঙ্গোডিবি ইমিউটেবল ইরোর এড়াতে)
-    //     delete updateData._id;
+    // delete report only
+    app.delete("/api/reports/:reportId", async (req, res) => {
+      const { reportId } = req.params;
+      console.log("Deleting Report:", { reportId });
+      try {
+        if (!reportId || !ObjectId.isValid(reportId)) {
+          return res.status(400).json({ message: "Invalid report ID" });
+        }
 
-    //     // আপডেট করার সময় updatedAt টাইমস্ট্যাম্প সেট করা
-    //     const result = await RecipeCollection.updateOne(
-    //       { _id: new ObjectId(id) },
-    //       {
-    //         $set: {
-    //           ...updateData,
-    //           updatedAt: new Date(),
-    //         },
-    //       },
-    //     );
+        const reportDeleteResult = await ReportsCollection.deleteOne({
+          _id: new ObjectId(reportId),
+        });
+        console.log("Report Delete Result:", reportDeleteResult);
 
-    //     if (result.matchedCount === 0) {
-    //       return res
-    //         .status(404)
-    //         .json({ success: false, message: "Recipe not found" });
-    //     }
+        if (reportDeleteResult.deletedCount === 0) {
+          return res.status(404).json({ message: "Report not found" });
+        }
+        res
+          .status(200)
+          .json({ success: true, message: "Report deleted successfully" });
+      } catch (error) {
+        console.error("Error deleting report:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
 
-    //     res
-    //       .status(200)
-    //       .json({ success: true, message: "Recipe updated successfully!" });
-    //   } catch (error) {
-    //     console.error("Error updating recipe:", error);
-    //     res.status(500).json({ success: false, message: error.message });
-    //   }
-    // });
 
-    // // ==========================================================================
-    // // 4. DELETE RECIPE API
-    // // ==========================================================================
-    // app.delete("/api/recipes/:id", async (req, res) => {
-    //   try {
-    //     const { id } = req.params;
-
-    //     if (!ObjectId.isValid(id)) {
-    //       return res
-    //         .status(400)
-    //         .json({ success: false, message: "Invalid Recipe ID format" });
-    //     }
-
-    //     const result = await RecipeCollection.deleteOne({ _id: new ObjectId(id) });
-
-    //     if (result.deletedCount === 0) {
-    //       return res
-    //         .status(404)
-    //         .json({ success: false, message: "Recipe not found" });
-    //     }
-
-    //     // রেসিপি ডিলিট হলে ঐ রেসিপির সাথে জড়িত লাইক বা রিপোর্টও ক্লিনআপ করতে পারেন এখান থেকে
-    //     await ReportsCollection.deleteMany({ recipeId: id });
-
-    //     res
-    //       .status(200)
-    //       .json({
-    //         success: true,
-    //         message: "Recipe permanently deleted from system.",
-    //       });
-    //   } catch (error) {
-    //     console.error("Error deleting recipe:", error);
-    //     res.status(500).json({ success: false, message: error.message });
-    //   }
-    // });
-
-    // // ==========================================================================
-    // // 5. FEATURED / UNFEARED TOGGLE API
-    // // ==========================================================================
-    // app.patch("/api/recipes/toggle-featured/:id", async (req, res) => {
-    //   try {
-    //     const { id } = req.params;
-
-    //     if (!ObjectId.isValid(id)) {
-    //       return res
-    //         .status(400)
-    //         .json({ success: false, message: "Invalid Recipe ID format" });
-    //     }
-
-    //     const recipe = await RecipeCollection.findOne({ _id: new ObjectId(id) });
-    //     if (!recipe) {
-    //       return res
-    //         .status(404)
-    //         .json({ success: false, message: "Recipe not found" });
-    //     }
-
-    //     // বর্তমান ইজফিচার্ড স্ট্যাটাস টগল করা
-    //     const updatedFeaturedState = !recipe.isFeatured;
-
-    //     await RecipeCollection.updateOne(
-    //       { _id: new ObjectId(id) },
-    //       {
-    //         $set: {
-    //           isFeatured: updatedFeaturedState,
-    //           updatedAt: new Date(),
-    //         },
-    //       },
-    //     );
-
-    //     res.status(200).json({
-    //       success: true,
-    //       message: `Recipe has been successfully ${updatedFeaturedState ? "marked as Featured" : "removed from Featured"}.`,
-    //       isFeatured: updatedFeaturedState,
-    //     });
-    //   } catch (error) {
-    //     console.error("Error toggling featured status:", error);
-    //     res.status(500).json({ success: false, message: error.message });
-    //   }
-    // });
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
@@ -999,4 +944,3 @@ run().catch(console.dir);
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
-
