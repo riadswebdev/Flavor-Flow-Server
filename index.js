@@ -32,7 +32,7 @@ async function run() {
     const FavoritesCollection = db.collection("favorites"); // Use the collection name "favorites"
     const ReportsCollection = db.collection("reports"); // Use the collection name "reports"
     const SubscriptionPlansCollection = db.collection("subscriptionPlans"); // Use the collection name "subscriptionPlans"
-    // not used yet
+
     const PaymentCollection = db.collection("payments");
     const RecipeCollection = db.collection("recipes"); // Use the collection name "recipes"
     const usersCollection = db.collection("user"); // Use the collection name "user"
@@ -65,16 +65,16 @@ async function run() {
     });
 
     // Post subscription plan
-    app.post("/api/subscription-plans", async (req, res) => {
-      try {
-        const subscriptionPlan = req.body;
-        const result =
-          await SubscriptionPlansCollection.insertOne(subscriptionPlan);
-        res.status(201).send(result);
-      } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-      }
-    });
+    // app.post("/api/subscription-plans", async (req, res) => {
+    //   try {
+    //     const subscriptionPlan = req.body;
+    //     const result =
+    //       await SubscriptionPlansCollection.insertOne(subscriptionPlan);
+    //     res.status(201).send(result);
+    //   } catch (error) {
+    //     res.status(500).json({ success: false, message: error.message });
+    //   }
+    // });
 
     // Get all subscription plans
     app.get("/api/subscription-plans", async (req, res) => {
@@ -602,12 +602,6 @@ async function run() {
           },
         };
 
-        // const subscriptionResult = await UserSubscriptions.updateOne(
-        //   { userId: userId },
-        //   subscriptionUpdate,
-        //   { upsert: true },
-        // );
-
         // C. Update status flags inside the main "user" collection matching MongoDB schema examples
         const userUpdateResult = await usersCollection.updateOne(
           { _id: new ObjectId(userId) },
@@ -684,7 +678,9 @@ async function run() {
 
           RecipeCollection.countDocuments({}),
 
-          usersCollection.countDocuments({ plan: "premium" }),
+          usersCollection.countDocuments({
+            planId: "premium",
+          }),
 
           ReportsCollection.countDocuments({ status: "Pending" }),
 
@@ -932,8 +928,6 @@ async function run() {
         res.status(500).json({ message: "Internal server error" });
       }
     });
-
-
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
