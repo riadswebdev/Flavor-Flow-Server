@@ -27,17 +27,16 @@ async function run() {
   try {
     await client.connect();
 
-    const db = client.db("flavorflow"); // Use the database name "flavorflow"
-    const LikesCollection = db.collection("likes"); // Use the collection name "likes"
-    const FavoritesCollection = db.collection("favorites"); // Use the collection name "favorites"
-    const ReportsCollection = db.collection("reports"); // Use the collection name "reports"
-    const SubscriptionPlansCollection = db.collection("subscriptionPlans"); // Use the collection name "subscriptionPlans"
-
+    const db = client.db("flavorflow");
+    const LikesCollection = db.collection("likes");
+    const FavoritesCollection = db.collection("favorites");
+    const ReportsCollection = db.collection("reports");
+    const SubscriptionPlansCollection = db.collection("subscriptionPlans");
     const PaymentCollection = db.collection("payments");
-    const RecipeCollection = db.collection("recipes"); // Use the collection name "recipes"
-    const usersCollection = db.collection("user"); // Use the collection name "user"
-    const UserSubscriptions = db.collection("user_subscriptions"); // Use the collection name "user_subscriptions"
-    const transactionsCollection = db.collection("transactions"); // Use the collection name "transactions"
+    const RecipeCollection = db.collection("recipes");
+    const usersCollection = db.collection("user");
+    const UserSubscriptions = db.collection("user_subscriptions");
+    const transactionsCollection = db.collection("transactions");
     await LikesCollection.createIndex(
       { recipeId: 1, userId: 1 },
       { unique: true },
@@ -46,7 +45,7 @@ async function run() {
       { recipeId: 1, userId: 1 },
       { unique: true },
     );
-  
+
     // Get all subscription plans
     app.get("/api/subscription-plans", async (req, res) => {
       try {
@@ -190,7 +189,7 @@ async function run() {
         const recipeId = req.params.id;
         const { action, favRecipe } = req.body;
         const userId = favRecipe.userId;
-        console.log("Favorite Recipe Data:", favRecipe);
+
         if (!recipeId || !userId) {
           return res
             .status(400)
@@ -234,16 +233,16 @@ async function run() {
       async (req, res) => {
         try {
           const { userId, recipeId } = req.params;
-          console.log("Deleting Favorite Recipe:", { userId, recipeId });
+
           const query = {
             userId: userId,
             recipeId: recipeId,
           };
-          console.log("Delete Query:", query);
+
           const existingData = await FavoritesCollection.findOne(query);
-          console.log("Existing Favorite Data:", existingData);
+
           const result = await FavoritesCollection.deleteOne(query);
-          console.log(result, "delete result");
+
           if (result.deletedCount === 0) {
             return res
               .status(404)
@@ -265,7 +264,7 @@ async function run() {
         const result = await ReportsCollection.insertOne({
           ...reportData,
         });
-        console.log("Report Result:", result);
+
         res
           .status(201)
           .json({ success: true, message: "Recipe reported successfully" });
@@ -333,13 +332,12 @@ async function run() {
       try {
         const recipeId = req.params.id;
         const updateData = req.body;
-        console.log("Update Data:", updateData);
-        console.log("Recipe ID:", recipeId);
+
         const updatedRecipe = await RecipeCollection.updateOne(
           { _id: new ObjectId(recipeId) },
           { $set: updateData },
         );
-        console.log("Updated Recipe Result:", updatedRecipe);
+
         if (updatedRecipe.matchedCount === 0) {
           return res.status(404).json({
             success: false,
@@ -428,7 +426,7 @@ async function run() {
     app.delete("/api/recipes/:id", async (req, res) => {
       try {
         const recipeId = req.params.id;
-        console.log("Deleting Recipe ID:", recipeId);
+
         if (!ObjectId.isValid(recipeId)) {
           return res.status(400).json({
             success: false,
@@ -438,7 +436,7 @@ async function run() {
         const deletedRecipe = await RecipeCollection.deleteOne({
           _id: new ObjectId(recipeId),
         });
-        console.log("Deleted Recipe Result:", deletedRecipe);
+
         if (!deletedRecipe) {
           return res.status(404).json({
             success: false,
@@ -451,7 +449,6 @@ async function run() {
           message: "Recipe deleted successfully",
         });
       } catch (error) {
-        console.error("Error in deleteRecipe Controller:", error);
         return res.status(500).json({
           success: false,
           message: "Server Error! Failed to delete recipe.",
@@ -483,7 +480,6 @@ async function run() {
           popularRecipes,
         });
       } catch (error) {
-        console.error("Error in getHomeRecipes Controller:", error);
         return res.status(500).json({
           success: false,
           message: "Server Error! Failed to fetch home data.",
@@ -492,11 +488,10 @@ async function run() {
     });
 
     // Post Payment Record
-
     app.post("/api/users/recipe-purchase/save", async (req, res) => {
       try {
         const paymentRecord = req.body;
-        console.log("Payment Record Data:", paymentRecord);
+
         const paymentData = await PaymentCollection.insertOne(paymentRecord);
         if (!paymentData.acknowledged) {
           return res.status(500).json({
@@ -532,21 +527,23 @@ async function run() {
     app.get("/api/users/:userId/recipe-purchase", async (req, res) => {
       try {
         const userId = req.params.userId;
+
         const paymentRecords = await PaymentCollection.find({
-          userId,
+          userId: userId,
         }).toArray();
-        if (!paymentRecords || paymentRecords.length === 0) {
-          return res.status(404).json({
-            success: false,
-            message: "No payment records found for the specified user",
-          });
-        }
+
         res.status(200).json({
           success: true,
+          message: "Payment records retrieved successfully",
           data: paymentRecords,
         });
       } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({
+          success: false,
+          message:
+            "Internal server error occurred while retrieving payment records.",
+          error: error.message,
+        });
       }
     });
 
@@ -866,7 +863,6 @@ async function run() {
     app.patch("/api/recipes/:id/toggle-featured", async (req, res) => {
       try {
         const { id } = req.params;
-        console.log("Toggle Featured Recipe ID:", id);
 
         // Get current value
         const recipe = await RecipeCollection.findOne({
@@ -909,7 +905,6 @@ async function run() {
     // Delete Recipe with Report
     app.delete("/api/recipes/:recipeId/report/:reportId", async (req, res) => {
       const { recipeId, reportId } = req.params;
-      console.log("Deleting Recipe and Report:", { recipeId, reportId });
       try {
         if (!recipeId || !ObjectId.isValid(reportId)) {
           return res
@@ -921,12 +916,11 @@ async function run() {
         const recipeDeleteResult = await RecipeCollection.deleteOne({
           _id: new ObjectId(recipeId),
         });
-        console.log("Recipe Delete Result:", recipeDeleteResult);
+
         // Delete the report
         const reportDeleteResult = await ReportsCollection.deleteOne({
           _id: new ObjectId(reportId),
         });
-        console.log("Report Delete Result:", reportDeleteResult);
       } catch (error) {
         console.error("Error deleting recipe report:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -936,7 +930,6 @@ async function run() {
     // delete report only
     app.delete("/api/reports/:reportId", async (req, res) => {
       const { reportId } = req.params;
-      console.log("Deleting Report:", { reportId });
       try {
         if (!reportId || !ObjectId.isValid(reportId)) {
           return res.status(400).json({ message: "Invalid report ID" });
@@ -945,7 +938,6 @@ async function run() {
         const reportDeleteResult = await ReportsCollection.deleteOne({
           _id: new ObjectId(reportId),
         });
-        console.log("Report Delete Result:", reportDeleteResult);
 
         if (reportDeleteResult.deletedCount === 0) {
           return res.status(404).json({ message: "Report not found" });
