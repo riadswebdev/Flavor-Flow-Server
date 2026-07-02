@@ -46,36 +46,7 @@ async function run() {
       { recipeId: 1, userId: 1 },
       { unique: true },
     );
-    // update user additional info
-    app.patch("/update/:userId", async (req, res) => {
-      try {
-        const userId = req.params.userId;
-        const updateData = req.body;
-        const filter = { _id: new ObjectId(userId) };
-        const update = {
-          $set: {
-            ...updateData,
-          },
-        };
-        const result = await usersCollection.findOneAndUpdate(filter, update);
-        res.send(result);
-      } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-      }
-    });
-
-    // Post subscription plan
-    // app.post("/api/subscription-plans", async (req, res) => {
-    //   try {
-    //     const subscriptionPlan = req.body;
-    //     const result =
-    //       await SubscriptionPlansCollection.insertOne(subscriptionPlan);
-    //     res.status(201).send(result);
-    //   } catch (error) {
-    //     res.status(500).json({ success: false, message: error.message });
-    //   }
-    // });
-
+  
     // Get all subscription plans
     app.get("/api/subscription-plans", async (req, res) => {
       try {
@@ -520,6 +491,65 @@ async function run() {
       }
     });
 
+    // Post Payment Record
+
+    app.post("/api/users/recipe-purchase/save", async (req, res) => {
+      try {
+        const paymentRecord = req.body;
+        console.log("Payment Record Data:", paymentRecord);
+        const paymentData = await PaymentCollection.insertOne(paymentRecord);
+        if (!paymentData.acknowledged) {
+          return res.status(500).json({
+            success: false,
+            message: "Failed to save payment record",
+          });
+        }
+        res.status(201).json({
+          success: true,
+          message: "Payment record saved successfully",
+          data: paymentData,
+        });
+
+        const transactionData =
+          await SubscriptionPlansCollection.insertOne(paymentRecord);
+        if (!transactionData.acknowledged) {
+          return res.status(500).json({
+            success: false,
+            message: "Failed to save payment record",
+          });
+        }
+        res.status(201).json({
+          success: true,
+          message: "Payment record saved successfully",
+          data: transactionData,
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // Get payment records by user id
+    app.get("/api/users/:userId/recipe-purchase", async (req, res) => {
+      try {
+        const userId = req.params.userId;
+        const paymentRecords = await PaymentCollection.find({
+          userId,
+        }).toArray();
+        if (!paymentRecords || paymentRecords.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "No payment records found for the specified user",
+          });
+        }
+        res.status(200).json({
+          success: true,
+          data: paymentRecords,
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
     // Update user subscription plan and record transaction
     app.post("/api/users/subscription/update", async (req, res) => {
       try {
@@ -585,7 +615,7 @@ async function run() {
           createdAt: paymentDate,
         };
 
-        const transactionResult =
+        const transactionData =
           await transactionsCollection.insertOne(transactionRecord);
 
         // B. Create or update the detailed User Subscription record
